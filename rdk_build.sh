@@ -165,8 +165,6 @@ function build()
       export GLIB_CONFIG_INCLUDE_PATH="${_TMTGTBUILDROOT}/comps/generic_apps/usr/lib/glib-2.0"
       export GLIB_LIBRARY_PATH="${FSROOT}/appfs/lib"
       export GLIBS="-lglib-2.0 -lz"
-      export DS_PATH="${BUILD_DIR}/devicesettings"
-
       export CFLAGS="-O2 -Wall -fPIC \
          -I${_TMTGTBUILDROOT}/comps/generic_apps/usr/include \
          -I${NXP_BASE_ROOT}/open_source_archive/linux/tools_glibc_${GCC_VERSION}/usr/include \
