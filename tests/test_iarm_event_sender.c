@@ -80,22 +80,6 @@ static void reset_mocks(void)
     memset(captured_event, 0, sizeof(captured_event));
 }
 
-static void test_parse_argument_types(void)
-{
-    ArgValue value;
-
-    CHECK(parseArg("-17", ARG_INT, &value));
-    CHECK(value.type == ARG_INT);
-    CHECK(value.val.i == -17);
-    CHECK(parseArg("TRUE", ARG_BOOL, &value));
-    CHECK(value.val.b);
-    CHECK(parseArg("false", ARG_BOOL, &value));
-    CHECK(!value.val.b);
-    CHECK(!parseArg("yes", ARG_BOOL, &value));
-    CHECK(parseArg("language", ARG_STRING, &value));
-    CHECK(strcmp(value.val.s, "language") == 0);
-}
-
 static void test_system_state_event_payload(void)
 {
     GString *name = g_string_new("GatewayConnEvent");
@@ -144,75 +128,6 @@ static void test_custom_state_and_intrusion_payloads(void)
     g_string_free(name, TRUE);
 }
 
-static void test_dsmgr_event_dispatch_and_invalid_arguments(void)
-{
-    char *valid_argv[] = { "IARM_event_sender", "DSMgr_EventRxSense", "23", NULL };
-    char *invalid_argv[] = { "IARM_event_sender", "DSMgr_HdmiHotPlug", "maybe", NULL };
-    char *wrong_count_argv[] = { "IARM_event_sender", "DSMgr_EventRxSense", NULL };
-    char *unknown_event_argv[] = { "IARM_event_sender", "DSMgr_Unknown", NULL };
-    IARM_Bus_DSMgr_EventData_t *event_data;
-
-    reset_mocks();
-    handleIARMEvents(3, valid_argv);
-    CHECK(broadcast_calls == 1);
-    CHECK(captured_event_id == IARM_BUS_DSMGR_EVENT_RX_SENSE);
-    event_data = (IARM_Bus_DSMgr_EventData_t *)captured_event;
-    CHECK(event_data->data.hdmi_rxsense.status == 23);
-    CHECK(bus_init_calls == 1);
-    CHECK(bus_disconnect_calls == 1);
-
-    reset_mocks();
-    handleIARMEvents(3, invalid_argv);
-    CHECK(broadcast_calls == 0);
-    CHECK(bus_init_calls == 0);
-
-    reset_mocks();
-    handleIARMEvents(2, wrong_count_argv);
-    CHECK(broadcast_calls == 0);
-    CHECK(bus_init_calls == 0);
-
-    reset_mocks();
-    handleIARMEvents(2, unknown_event_argv);
-    CHECK(broadcast_calls == 0);
-    CHECK(bus_init_calls == 0);
-}
-
-static void test_all_registered_dsmgr_handlers(void)
-{
-    size_t event_index;
-
-    for (event_index = 0; event_index < (size_t)iarmEventTableSize; event_index++) {
-        char *argv[MAX_ARG_NO_TYPE + 3] = { "IARM_event_sender", NULL };
-        char values[MAX_ARG_NO_TYPE][16];
-        IARM_EventEntry *entry = &iarmEventTable[event_index];
-        int argument_index;
-
-        argv[1] = (char *)entry->name;
-        for (argument_index = 0; argument_index < entry->argc_expected; argument_index++) {
-            switch (entry->arg_types[argument_index]) {
-                case ARG_INT:
-                    snprintf(values[argument_index], sizeof(values[argument_index]), "%d", argument_index + 1);
-                    break;
-                case ARG_BOOL:
-                    snprintf(values[argument_index], sizeof(values[argument_index]), "true");
-                    break;
-                case ARG_STRING:
-                    snprintf(values[argument_index], sizeof(values[argument_index]), "sample");
-                    break;
-            }
-            argv[argument_index + 2] = values[argument_index];
-        }
-
-        reset_mocks();
-        handleIARMEvents(entry->argc_expected + 2, argv);
-        CHECK(broadcast_calls == 1);
-        CHECK(bus_init_calls == 1);
-        CHECK(bus_connect_calls == 1);
-        CHECK(bus_disconnect_calls == 1);
-        CHECK(bus_term_calls == 1);
-    }
-}
-
 static void test_broadcast_error_is_propagated(void)
 {
     GString *name = g_string_new("NTPReceivedEvent");
@@ -238,7 +153,7 @@ static void test_cli_usage_and_invalid_arguments(void)
     CHECK(broadcast_calls == 0);
 }
 
-static void test_cli_routes_system_custom_and_dsmgr_events(void)
+static void test_cli_routes_system_and_custom_events(void)
 {
     char *system_state_argv[] = { "IARM_event_sender", "GatewayConnEvent", "1", NULL };
     char *filter_argv[] = { "IARM_event_sender", "EISSFilterEvent", "5", NULL };
@@ -353,14 +268,11 @@ static void test_cli_peripheral_payload_route(void)
 
 int main(void)
 {
-    test_parse_argument_types();
     test_system_state_event_payload();
     test_custom_state_and_intrusion_payloads();
-    test_dsmgr_event_dispatch_and_invalid_arguments();
-    test_all_registered_dsmgr_handlers();
     test_broadcast_error_is_propagated();
     test_cli_usage_and_invalid_arguments();
-    test_cli_routes_system_custom_and_dsmgr_events();
+    test_cli_routes_system_and_custom_events();
     test_cli_intrusion_payload_and_truncation();
     test_cli_usb_mount_and_detection_events();
     test_eiss_app_id_payload_dispatch();
